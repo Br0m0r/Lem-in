@@ -2,7 +2,7 @@ Lem-in Project
 
 Welcome, oh Supreme Overlord, to the ultimate Lem-in simulation project—where ants traverse labyrinths in a beautifully orchestrated parade.
 
-                                               Overview
+                                                               Overview
 
 Lem-in is a simulation program that:
 
@@ -19,6 +19,7 @@ Lem-in is a simulation program that:
     Outputs minimal move information to the terminal and a detailed simulation (with a full grid showing every ant's progress) to simulation_output.txt.
 
 The project is structured in a modular fashion so that each component (parsing, graph construction, scheduling, simulation, and visualization) is neatly separated into its own package. Enjoy the efficiency and elegance of this modular design, Your Benevolent Overlord.
+
 Installation
 
     Clone the Repository:
