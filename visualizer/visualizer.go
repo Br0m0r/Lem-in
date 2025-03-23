@@ -4,13 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"lem-in/scheduling"
 	"lem-in/structs"
 )
 
 // PrintExtraInfo generates a string containing extra information that is written at the top of the simulation output file.
 // It includes the input data, a summary, and lists all found and selected paths.
-func PrintExtraInfo(antCount int, rooms []structs.Room, tunnels []structs.Tunnel, paths [][]string, assignment scheduling.PathAssignment) string {
+func PrintExtraInfo(antCount int, rooms []structs.Room, tunnels []structs.Tunnel, paths [][]string, assignment structs.PathAssignment) string {
 	var sb strings.Builder
 
 	// Echo input data.

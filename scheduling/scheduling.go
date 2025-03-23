@@ -1,16 +1,13 @@
 package scheduling
 
-import "sort"
-
-// PathAssignment holds the distribution of ants among the available paths.
-type PathAssignment struct {
-	Paths       [][]string // Each path represented as a slice of room names.
-	AntsPerPath []int      // Number of ants assigned to each corresponding path.
-}
+import (
+	"lem-in/structs"
+	"sort"
+)
 
 // AssignAnts distributes ants among paths using a greedy algorithm.
 // The effective cost is calculated as: (path length) + (ants already assigned) - 1.
-func AssignAnts(antCount int, paths [][]string) PathAssignment {
+func AssignAnts(antCount int, paths [][]string) structs.PathAssignment {
 	numPaths := len(paths)
 	antsPerPath := make([]int, numPaths)
 
@@ -29,5 +26,5 @@ func AssignAnts(antCount int, paths [][]string) PathAssignment {
 		})
 		antsPerPath[pathCosts[0].index]++
 	}
-	return PathAssignment{Paths: paths, AntsPerPath: antsPerPath}
+	return structs.PathAssignment{Paths: paths, AntsPerPath: antsPerPath}
 }

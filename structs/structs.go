@@ -17,8 +17,14 @@ type Tunnel struct {
 
 // Graph represents the ant farm as an adjacency list.
 type Graph struct {
-	Rooms     map[string]*Room  // Mapping from room name to Room
+	Rooms     map[string]*Room    // Mapping from room name to Room
 	Neighbors map[string][]string // Mapping from room name to adjacent room names
+}
+
+// PathAssignment holds the distribution of ants among the available paths.
+type PathAssignment struct {
+	Paths       [][]string // Each path represented as a slice of room names.
+	AntsPerPath []int      // Number of ants assigned to each corresponding path.
 }
 
 // PathSim represents the simulation state for a single path.

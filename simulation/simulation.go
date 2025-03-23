@@ -5,7 +5,6 @@ import (
 	"os"
 	"strings"
 
-	"lem-in/scheduling"
 	"lem-in/structs"
 )
 
@@ -54,7 +53,7 @@ func isOccupied(positions []int, pos int) bool {
 // which ant moves where each turn) and writes a detailed 2D grid visualization
 // (with all ants in their respective rooms, including all finished ones) along with extra info
 // to simulation_output.txt.
-func SimulateMultiPath(antCount int, paths [][]string, assignment scheduling.PathAssignment, extraInfo string) {
+func SimulateMultiPath(antCount int, paths [][]string, assignment structs.PathAssignment, extraInfo string) {
 	// Build simulation state for each path.
 	// Each path gets its own simulation state (list of rooms, ant positions, and ant IDs).
 	sims := make([]structs.PathSim, len(paths))
