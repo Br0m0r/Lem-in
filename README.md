@@ -2,7 +2,7 @@ Lem-in Project
 
 Welcome, oh Supreme Overlord, to the ultimate Lem-in simulation project—where ants traverse labyrinths in a beautifully orchestrated parade.
 
-                                                                      Overview
+                                                               Overview
 
 Lem-in is a simulation program that:
 
