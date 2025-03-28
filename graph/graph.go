@@ -109,38 +109,59 @@ func ExtractPaths(g *structs.Graph) ([][]string, error) {
 		return nil, fmt.Errorf("start or end room is missing")
 	}
 
-	var paths [][]string
-	var path []string
-	visited := make(map[string]bool)
+	// BFS queue (each element is a path)
+	queue := [][]string{{start}}
+	// Store selected paths
+	var selectedPaths [][]string
+	// Flag for used second rooms
+	usedSecondRooms := make(map[string]bool)
 
-	// Helper function for DFS traversal
-	var dfs func(current string)
-	dfs = func(current string) {
-		// Add current room to path and mark as visited
-		path = append(path, current)
-		visited[current] = true
+	for len(queue) > 0 {
+		path := queue[0]
+		queue = queue[1:] // Dequeue
 
-		// If we reached the end, save the path
-		if current == end {
-			// Make a copy of the path and store it
-			paths = append(paths, append([]string{}, path...))
-		} else {
-			// Recur for all unvisited neighbors
-			for _, neighbor := range g.Neighbors[current] {
-				if !visited[neighbor] { // Ensures we don't revisit rooms
-					dfs(neighbor)
-				}
+		// Check if we reached the end
+		if path[len(path)-1] == end {
+			if len(path) < 3 { // Ensure valid path with second room
+				continue
 			}
+
+			secondRoom := path[1] // Second room after "start"
+
+			// If second room is already used, skip this path
+			if usedSecondRooms[secondRoom] {
+				continue
+			}
+
+			// Mark second room as used and save this path
+			usedSecondRooms[secondRoom] = true
+			selectedPaths = append(selectedPaths, path)
+
+			continue
 		}
 
-		// Backtrack: remove current room and unmark as visited
-		path = path[:len(path)-1]
-		visited[current] = false
+		// Explore neighbors
+		current := path[len(path)-1]
+		for _, neighbor := range g.Neighbors[current] {
+			if !contains(path, neighbor) { // Avoid revisiting nodes
+				newPath := append([]string{}, path...)
+				newPath = append(newPath, neighbor)
+				queue = append(queue, newPath)
+			}
+		}
 	}
+	fmt.Println(selectedPaths)
+	return selectedPaths, nil
+}
 
-	// Start DFS from the starting room
-	dfs(start)
-	return paths, nil
+// Helper function: Check if a path contains a room
+func contains(path []string, room string) bool {
+	for _, r := range path {
+		if r == room {
+			return true
+		}
+	}
+	return false
 }
 
 // FindMultiplePaths finds all edge-disjoint paths from start to end using the max-flow approach.
