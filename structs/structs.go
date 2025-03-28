@@ -35,17 +35,3 @@ type PathSim struct {
 	Positions []int    // Current position index for each ant (-1 means not yet injected)
 	AntIDs    []int    // Global ant IDs assigned to ants on this path
 }
-
-// FlowEdge represents a directed edge in the flow network used for path finding.
-// Each edge has a capacity (always 1) and tracks the current flow.
-type FlowEdge struct {
-	From, To string // Source and destination room names
-	Capacity int    // Edge capacity (1 in our case)
-	Flow     int    // Current flow through this edge
-}
-
-// FlowNetwork represents the network built from the graph for max-flow computations.
-type FlowNetwork struct {
-	Nodes     []string               // List of all room names (nodes)
-	Adjacency map[string][]*FlowEdge // Mapping from a room name to its outgoing flow edges
-}
