@@ -37,9 +37,6 @@ func BuildGraph(rooms []structs.Room, tunnels []structs.Tunnel) (*structs.Graph,
 		g.Neighbors[tunnel.RoomB] = append(g.Neighbors[tunnel.RoomB], tunnel.RoomA)
 	}
 
-	// --------------- Reorder Neighbors Block ---------------
-	// Sort each room's neighbor list alphabetically to ensure a consistent BFS order.
-
 	return g, nil
 }
 
