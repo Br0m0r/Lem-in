@@ -52,7 +52,7 @@ func Run() {
 		os.Exit(1)
 	}
 
-	paths, err := graph.FindMultiplePaths(antFarmGraph)
+	paths, err := graph.ExtractPaths(antFarmGraph)
 	if err != nil || len(paths) == 0 {
 		fmt.Println("ERROR: invalid data format")
 		os.Exit(1)
