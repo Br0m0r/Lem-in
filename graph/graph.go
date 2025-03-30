@@ -4,22 +4,28 @@ import (
 	"errors"
 	"fmt"
 
-	// For sorting neighbor lists
 	"lem-in/structs"
 )
 
-// ------------------------ Build Graph Block ------------------------
-// BuildGraph constructs a graph from rooms and tunnels.
-// It builds a map of room names to Room structs and an adjacency list.
-// After adding all tunnels, each neighbor list is sorted alphabetically so that
-// the BFS in FindMultiplePaths explores neighbors in a consistent order.
+// 1. BuildGraph
+// Constructs a graph from the given rooms and tunnels.
+// Arguments:
+//   - rooms ([]structs.Room): A slice of room structures with name, coordinates, and start/end flags.
+//   - tunnels ([]structs.Tunnel): A slice of tunnel structures linking two room names.
+//
+// Returns:
+//   - *structs.Graph: A pointer to a Graph structure containing:
+//   - Rooms: a map (string → *Room) of room names to room data.
+//   - Neighbors: a map (string → []string) representing the adjacency list.
+//   - error: an error if any tunnel references an unknown room.
 func BuildGraph(rooms []structs.Room, tunnels []structs.Tunnel) (*structs.Graph, error) {
+	// Create a new Graph with empty maps.
 	g := &structs.Graph{
 		Rooms:     make(map[string]*structs.Room),
 		Neighbors: make(map[string][]string),
 	}
 
-	// Add rooms to the graph.
+	// Add each room to the graph.
 	for i := range rooms {
 		room := rooms[i]
 		g.Rooms[room.Name] = &room
@@ -27,25 +33,34 @@ func BuildGraph(rooms []structs.Room, tunnels []structs.Tunnel) (*structs.Graph,
 
 	// Add tunnels to build the adjacency list.
 	for _, tunnel := range tunnels {
+		// Verify that both endpoints exist.
 		if _, ok := g.Rooms[tunnel.RoomA]; !ok {
 			return nil, fmt.Errorf("ERROR: tunnel references unknown room %s", tunnel.RoomA)
 		}
 		if _, ok := g.Rooms[tunnel.RoomB]; !ok {
 			return nil, fmt.Errorf("ERROR: tunnel references unknown room %s", tunnel.RoomB)
 		}
+		// Since the graph is undirected, add both directions.
 		g.Neighbors[tunnel.RoomA] = append(g.Neighbors[tunnel.RoomA], tunnel.RoomB)
 		g.Neighbors[tunnel.RoomB] = append(g.Neighbors[tunnel.RoomB], tunnel.RoomA)
 	}
 
+	// (Optional: Sorting neighbor lists could be done here to ensure consistent BFS order.)
+
 	return g, nil
 }
 
-// ------------------------ Path Finding Block ------------------------
-// FindMultiplePaths finds all edge-disjoint paths from the start room to the end room.
-// Since every tunnel has an implicit capacity of 1, it repeatedly searches for a simple path
-// using BFS, then "removes" the forward edges used in that path so that they are not reused.
+// 2. FindMultiplePaths
+// Finds all edge-disjoint paths from the start to the end room using a BFS-based approach.
+// Arguments:
+//   - g (*structs.Graph): The graph constructed from rooms and tunnels.
+//
+// Returns:
+//   - [][]string: A slice of paths, where each path is a slice of room names from start to end.
+//   - error: An error if no valid paths are found or if start/end are missing.
 func FindMultiplePaths(g *structs.Graph) ([][]string, error) {
 	var start, end string
+	// Identify start and end room names.
 	for name, room := range g.Rooms {
 		if room.IsStart {
 			start = name
@@ -58,7 +73,7 @@ func FindMultiplePaths(g *structs.Graph) ([][]string, error) {
 		return nil, errors.New("ERROR: missing start or end room")
 	}
 
-	// Make a copy of the neighbors so we can modify edge usage without affecting the original graph.
+	// Make a copy of the neighbors so that we can modify it while finding paths.
 	copyNeighbors := make(map[string][]string)
 	for room, neighs := range g.Neighbors {
 		neighborsCopy := make([]string, len(neighs))
@@ -68,13 +83,15 @@ func FindMultiplePaths(g *structs.Graph) ([][]string, error) {
 
 	var paths [][]string
 
-	// Continue searching until no path is found.
+	// Repeatedly search for a path using BFS.
 	for {
 		path, found := bfs(copyNeighbors, start, end)
 		if !found {
 			break
 		}
+		// Append the found path.
 		paths = append(paths, path)
+		// Remove the forward edges of the found path so they are not reused.
 		removePathEdges(copyNeighbors, path)
 	}
 
@@ -84,25 +101,35 @@ func FindMultiplePaths(g *structs.Graph) ([][]string, error) {
 	return paths, nil
 }
 
-// bfs performs a breadth-first search in the graph defined by neighbors from start to end.
-// It returns the first found path as a slice of room names.
+// 3. bfs
+// Performs a breadth-first search from start to end using the provided neighbors map.
+// Arguments:
+//   - neighbors (map[string][]string): The graph's adjacency list (which may be modified).
+//   - start (string): The starting room name.
+//   - end (string): The target room name.
+//
+// Returns:
+//   - []string: The found path as a slice of room names (if found).
+//   - bool: A flag indicating if a path was found (true) or not (false).
 func bfs(neighbors map[string][]string, start, end string) ([]string, bool) {
-	queue := []string{start}
-	visited := make(map[string]bool)
-	parent := make(map[string]string)
+	queue := []string{start}          // Initialize queue with the start node.
+	visited := make(map[string]bool)  // Track visited nodes.
+	parent := make(map[string]string) // Map to reconstruct the path.
 	visited[start] = true
 
 	for len(queue) > 0 {
 		current := queue[0]
 		queue = queue[1:]
+		// If we reach the end, reconstruct the path.
 		if current == end {
-			// Reconstruct the path from end to start.
 			var path []string
 			for node := end; node != ""; node = parent[node] {
+				// Prepend node to path.
 				path = append([]string{node}, path...)
 			}
 			return path, true
 		}
+		// Explore unvisited neighbors.
 		for _, neigh := range neighbors[current] {
 			if !visited[neigh] {
 				visited[neigh] = true
@@ -114,12 +141,14 @@ func bfs(neighbors map[string][]string, start, end string) ([]string, bool) {
 	return nil, false
 }
 
-// ------------------------ Edge Removal Block ------------------------
-// removePathEdges removes the forward edges used in the given path from the neighbors map.
-// For an undirected graph, instead of removing both directions immediately,
-// we remove only the forward edge (from u to v) to leave a reverse connection intact.
-// This reverse edge might help the BFS find an alternative route and thus reveal extra disjoint paths.
+// 4. removePathEdges
+// Removes the forward edges used in the given path from the neighbors map,
+// so that subsequent BFS searches cannot reuse these edges.
+// Arguments:
+//   - neighbors (map[string][]string): The mutable adjacency list copy.
+//   - path ([]string): The path found by bfs, as a slice of room names.
 func removePathEdges(neighbors map[string][]string, path []string) {
+	// For each consecutive pair of nodes in the path, remove the forward edge.
 	for i := 0; i < len(path)-1; i++ {
 		u, v := path[i], path[i+1]
 		neighbors[u] = removeEdge(neighbors[u], v)
@@ -127,9 +156,16 @@ func removePathEdges(neighbors map[string][]string, path []string) {
 	}
 }
 
-// removeEdge removes the element 'target' from the slice and returns the new slice.
+// 5. removeEdge
+// Removes the target string from a slice of strings and returns the updated slice.
+// Arguments:
+//   - slice ([]string): The slice from which to remove the element.
+//   - target (string): The element to remove.
+//
+// Returns:
+//   - []string: The new slice with the target removed.
 func removeEdge(slice []string, target string) []string {
-	newSlice := slice[:0]
+	newSlice := slice[:0] // Use the same underlying array.
 	for _, s := range slice {
 		if s != target {
 			newSlice = append(newSlice, s)
