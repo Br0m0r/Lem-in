@@ -11,119 +11,135 @@ import (
 	"lem-in/structs"
 )
 
-// ParseInputFile reads the input file and returns the ant count, rooms, tunnels, and an error if any.
-// It expects the first line to be the ant count, then room definitions (with "##start" and "##end"),
-// followed by tunnel definitions.
-func ParseInputFile(filename string) (int, []structs.Room, []structs.Tunnel, error) {
-	// 1. Open the input file.
-	//    - filename (string): the path to the input file.
-	//    - Returns an *os.File handle if successful.
-	file, err := os.Open(filename)
+// ParseInputFile reads an input file and returns:
+//   - The total number of ants,
+//   - A list of rooms,
+//   - A list of tunnels (connections between rooms).
+//
+// Example using example00.txt:
+//
+//	File content:
+//	  4
+//	  ##start
+//	  0 0 3
+//	  2 2 5
+//	  3 4 0
+//	  ##end
+//	  1 8 3
+//	  0-2
+//	  2-3
+//	  3-1
+//
+//	From this file:
+//	  - The ant count is 4.
+//	  - Rooms parsed:
+//	      "0" with coordinates (0,3), marked as start.
+//	      "2" with coordinates (2,5).
+//	      "3" with coordinates (4,0).
+//	      "1" with coordinates (8,3), marked as end.
+//	  - Tunnels parsed:
+//	      "0-2", "2-3", "3-1".
+func ParseInputFile(filePath string) (int, []structs.Room, []structs.Tunnel, error) {
+	// Open the input file.
+	file, err := os.Open(filePath)
 	if err != nil {
-		// If the file cannot be opened, return an error.
 		return 0, nil, nil, fmt.Errorf("failed to open file: %v", err)
 	}
-	// Ensure the file is closed once processing is done.
+	// Ensure the file is closed after reading.
 	defer file.Close()
 
-	// 2. Create a scanner to read the file line by line.
+	// Create a scanner to read the file line by line.
 	scanner := bufio.NewScanner(file)
 
-	// 3. Declare variables to store results.
-	var antCount int             // Will hold the number of ants (parsed from the first line).
-	var rooms []structs.Room     // A slice to accumulate room definitions.
-	var tunnels []structs.Tunnel // A slice to accumulate tunnel definitions.
+	// Variables to store our results.
+	var antTotal int                // Will hold the number of ants.
+	var roomList []structs.Room     // Will accumulate room definitions.
+	var tunnelList []structs.Tunnel // Will accumulate tunnel definitions.
 
-	// 4. Create a map to check for duplicate room coordinates.
-	//    - Key format is "x,y" (e.g., "10,20").
-	coordinateMap := make(map[string]bool)
+	// Create a map to check for duplicate room positions.
+	// We use "x,y" as a key to ensure no two rooms share the same coordinates.
+	positionMap := make(map[string]bool)
 
-	// 5. Read the first line for the ant count.
+	// Read the first line to get the ant count.
+	// For example00.txt, the first line is "4".
 	if scanner.Scan() {
-		countStr := strings.TrimSpace(scanner.Text())
-		// Convert the ant count from string to integer.
-		antCount, err = strconv.Atoi(countStr)
+		antStr := strings.TrimSpace(scanner.Text())
+		antTotal, err = strconv.Atoi(antStr)
 		if err != nil {
 			return 0, nil, nil, errors.New("ERROR: invalid number of ants")
 		}
 	}
 
-	// 6. Variables to flag if the next room should be marked as start or end.
-	var isNextRoomStart, isNextRoomEnd bool
+	// Flags to mark the next room as the start or the end.
+	var nextRoomIsStart, nextRoomIsEnd bool
 
-	// 7. Process the rest of the file line by line.
+	// Process the remaining lines.
 	for scanner.Scan() {
-		// Remove any surrounding whitespace.
 		line := strings.TrimSpace(scanner.Text())
-		// Skip empty lines.
 		if len(line) == 0 {
-			continue
+			continue // Skip empty lines.
 		}
-		// 8. Handle comment lines:
-		//    - Lines starting with "#" are comments or commands.
+		// Handle comment lines:
+		// Lines beginning with '#' are either comments or commands.
+		// For example, "##start" and "##end" mark the following room.
 		if line[0] == '#' {
-			// If the line is "##start", flag the next room as the start.
 			if strings.HasPrefix(line, "##start") {
-				isNextRoomStart = true
+				nextRoomIsStart = true // Mark the next room as the starting room.
 				continue
 			}
-			// If the line is "##end", flag the next room as the end.
 			if strings.HasPrefix(line, "##end") {
-				isNextRoomEnd = true
+				nextRoomIsEnd = true // Mark the next room as the ending room.
 				continue
 			}
-			// Other comments are ignored.
+			// Ignore other comments.
 			continue
 		}
-		// 9. Split the line into parts.
+		// If the line has exactly 3 parts, it's a room definition.
+		// In example00.txt, the room definitions are like "0 0 3" or "2 2 5".
 		parts := strings.Fields(line)
-		// If there are exactly 3 parts, it is treated as a room definition.
 		if len(parts) == 3 {
-			// Convert the second and third parts into integers (x and y coordinates).
+			// Convert the coordinate strings into integers.
 			x, errX := strconv.Atoi(parts[1])
 			y, errY := strconv.Atoi(parts[2])
 			if errX != nil || errY != nil {
 				return 0, nil, nil, errors.New("ERROR: invalid room coordinates")
 			}
-
-			// 10. Check for duplicate coordinates.
-			//     Create a key using the format "x,y".
-			coordKey := fmt.Sprintf("%d,%d", x, y)
-			if _, exists := coordinateMap[coordKey]; exists {
+			// Create a unique key for this room's position.
+			posKey := fmt.Sprintf("%d,%d", x, y)
+			if _, exists := positionMap[posKey]; exists {
 				return 0, nil, nil, errors.New("ERROR: duplicate room coordinates")
 			}
-			// Record these coordinates.
-			coordinateMap[coordKey] = true
+			positionMap[posKey] = true // Mark these coordinates as used.
 
-			// 11. Create a room structure with the name, coordinates, and flags for start/end.
-			room := structs.Room{
+			// Create the room with the provided data.
+			// For example, for "0 0 3": Name is "0", X is 0, Y is 3, and it is marked as start if flagged.
+			newRoom := structs.Room{
 				Name:    parts[0],
 				X:       x,
 				Y:       y,
-				IsStart: isNextRoomStart,
-				IsEnd:   isNextRoomEnd,
+				IsStart: nextRoomIsStart,
+				IsEnd:   nextRoomIsEnd,
 			}
-			// Append the room to the rooms slice.
-			rooms = append(rooms, room)
-			// Reset the flags for the next room.
-			isNextRoomStart = false
-			isNextRoomEnd = false
-			// Move to the next line.
+			// Add the room to our room list.
+			roomList = append(roomList, newRoom)
+
+			// Reset the start/end flags after using them.
+			nextRoomIsStart = false
+			nextRoomIsEnd = false
 			continue
 		}
-		// 12. If the line contains a hyphen, treat it as a tunnel definition.
+		// If the line contains a hyphen, it's a tunnel definition.
+		// In example00.txt, these are "0-2", "2-3", and "3-1".
 		if strings.Contains(line, "-") {
-			// Split the line by "-" into two room names.
 			roomNames := strings.Split(line, "-")
-			// There must be exactly 2 parts for a valid tunnel.
 			if len(roomNames) != 2 {
 				return 0, nil, nil, errors.New("ERROR: invalid tunnel definition")
 			}
-			// Create a tunnel structure and add it to the tunnels slice.
-			tunnels = append(tunnels, structs.Tunnel{RoomA: roomNames[0], RoomB: roomNames[1]})
+			newTunnel := structs.Tunnel{RoomA: roomNames[0], RoomB: roomNames[1]}
+			tunnelList = append(tunnelList, newTunnel)
 			continue
 		}
 	}
-	// 13. Return the parsed ant count, rooms, tunnels, and nil error if all goes well.
-	return antCount, rooms, tunnels, nil
+	// Return the ant count, room list, and tunnel list.
+	return antTotal, roomList, tunnelList, nil
 }

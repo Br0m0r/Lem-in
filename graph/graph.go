@@ -7,169 +7,167 @@ import (
 	"lem-in/structs"
 )
 
-// 1. BuildGraph
-// Constructs a graph from the given rooms and tunnels.
-// Arguments:
-//   - rooms ([]structs.Room): A slice of room structures with name, coordinates, and start/end flags.
-//   - tunnels ([]structs.Tunnel): A slice of tunnel structures linking two room names.
+// BuildGraph creates a graph (map) of the ant farm using the list of rooms and tunnels.
+// Example with example00.txt:
 //
-// Returns:
-//   - *structs.Graph: A pointer to a Graph structure containing:
-//   - Rooms: a map (string → *Room) of room names to room data.
-//   - Neighbors: a map (string → []string) representing the adjacency list.
-//   - error: an error if any tunnel references an unknown room.
-func BuildGraph(rooms []structs.Room, tunnels []structs.Tunnel) (*structs.Graph, error) {
-	// Create a new Graph with empty maps.
-	g := &structs.Graph{
-		Rooms:     make(map[string]*structs.Room),
-		Neighbors: make(map[string][]string),
+//	Parsed Rooms: "0" (start, 0,3), "2" (2,5), "3" (4,0), "1" (end, 8,3)
+//	Parsed Tunnels: "0-2", "2-3", "3-1"
+//
+// After building, the graph will have:
+//
+//	Rooms map: keys "0", "2", "3", "1" mapping to their respective room data.
+//	Neighbors map: "0": ["2"], "2": ["0", "3"], "3": ["2", "1"], "1": ["3"]
+func BuildGraph(roomList []structs.Room, connections []structs.Tunnel) (*structs.Graph, error) {
+	// Create a new graph with empty maps.
+	// "graphData" will store all room details and the list of their direct connections.
+	graphData := &structs.Graph{
+		Rooms:     make(map[string]*structs.Room), // Keys will be room names.
+		Neighbors: make(map[string][]string),      // Each room name will map to a list of connected room names.
 	}
 
 	// Add each room to the graph.
-	for i := range rooms {
-		room := rooms[i]
-		g.Rooms[room.Name] = &room
+	// For each room from the parsed roomList (from example00.txt, these are "0", "2", "3", "1"),
+	// we store the room data using the room's name as the key.
+	for i := range roomList {
+		currentRoom := roomList[i]
+		graphData.Rooms[currentRoom.Name] = &currentRoom
 	}
 
-	// Add tunnels to build the adjacency list.
-	for _, tunnel := range tunnels {
-		// Verify that both endpoints exist.
-		if _, ok := g.Rooms[tunnel.RoomA]; !ok {
-			return nil, fmt.Errorf("ERROR: tunnel references unknown room %s", tunnel.RoomA)
+	// Process each tunnel and update the list of connected rooms.
+	// For each tunnel (e.g., "0-2", "2-3", "3-1") in the parsed connections:
+	for _, tunnel := range connections {
+		// Check that both room names in the tunnel exist in the Rooms map.
+		if _, found := graphData.Rooms[tunnel.RoomA]; !found {
+			return nil, fmt.Errorf("ERROR: tunnel refers to unknown room %s", tunnel.RoomA)
 		}
-		if _, ok := g.Rooms[tunnel.RoomB]; !ok {
-			return nil, fmt.Errorf("ERROR: tunnel references unknown room %s", tunnel.RoomB)
+		if _, found := graphData.Rooms[tunnel.RoomB]; !found {
+			return nil, fmt.Errorf("ERROR: tunnel refers to unknown room %s", tunnel.RoomB)
 		}
-		// Since the graph is undirected, add both directions.
-		g.Neighbors[tunnel.RoomA] = append(g.Neighbors[tunnel.RoomA], tunnel.RoomB)
-		g.Neighbors[tunnel.RoomB] = append(g.Neighbors[tunnel.RoomB], tunnel.RoomA)
+		// Since tunnels work in both directions, add each room to the other's neighbor list.
+		// For tunnel "0-2": add "2" as a neighbor of "0", and "0" as a neighbor of "2".
+		graphData.Neighbors[tunnel.RoomA] = append(graphData.Neighbors[tunnel.RoomA], tunnel.RoomB)
+		graphData.Neighbors[tunnel.RoomB] = append(graphData.Neighbors[tunnel.RoomB], tunnel.RoomA)
 	}
 
-	// (Optional: Sorting neighbor lists could be done here to ensure consistent BFS order.)
+	// At this point, using our example00.txt:
+	//   Rooms map: "0" -> Room "0", "2" -> Room "2", "3" -> Room "3", "1" -> Room "1"
+	//   Neighbors map: "0": ["2"], "2": ["0", "3"], "3": ["2", "1"], "1": ["3"]
 
-	return g, nil
+	return graphData, nil
 }
 
-// 2. FindMultiplePaths
-// Finds all edge-disjoint paths from the start to the end room using a BFS-based approach.
-// Arguments:
-//   - g (*structs.Graph): The graph constructed from rooms and tunnels.
+// FindMultiplePaths finds all separate paths (without reusing tunnels) from the start room to the end room
+// using a breadth-first search (BFS) approach.
+// Example with example00.txt:
 //
-// Returns:
-//   - [][]string: A slice of paths, where each path is a slice of room names from start to end.
-//   - error: An error if no valid paths are found or if start/end are missing.
-func FindMultiplePaths(g *structs.Graph) ([][]string, error) {
-	var start, end string
-	// Identify start and end room names.
-	for name, room := range g.Rooms {
-		if room.IsStart {
-			start = name
+//	Start room is "0" (as flagged by IsStart) and end room is "1" (flagged as IsEnd).
+//	With our graph, bfs will find the path: ["0", "2", "3", "1"].
+//	Then, the tunnel connections used in that path will be removed.
+func FindMultiplePaths(graphData *structs.Graph) ([][]string, error) {
+	var startRoom, endRoom string
+	// Identify the start and end room names from the Rooms map.
+	for name, roomData := range graphData.Rooms {
+		if roomData.IsStart {
+			startRoom = name
 		}
-		if room.IsEnd {
-			end = name
+		if roomData.IsEnd {
+			endRoom = name
 		}
 	}
-	if start == "" || end == "" {
+	if startRoom == "" || endRoom == "" {
 		return nil, errors.New("ERROR: missing start or end room")
 	}
 
-	// Make a copy of the neighbors so that we can modify it while finding paths.
-	copyNeighbors := make(map[string][]string)
-	for room, neighs := range g.Neighbors {
-		neighborsCopy := make([]string, len(neighs))
-		copy(neighborsCopy, neighs)
-		copyNeighbors[room] = neighborsCopy
+	// Make a copy of the Neighbors map (connections) so that we can modify it as we remove used tunnels.
+	// For example, the copy initially is:
+	//   "0": ["2"], "2": ["0", "3"], "3": ["2", "1"], "1": ["3"]
+	connectionsCopy := make(map[string][]string)
+	for roomName, connectedList := range graphData.Neighbors {
+		newList := make([]string, len(connectedList))
+		copy(newList, connectedList)
+		connectionsCopy[roomName] = newList
 	}
 
-	var paths [][]string
+	var foundPaths [][]string
 
-	// Repeatedly search for a path using BFS.
+	// Repeatedly search for a new path using BFS.
+	// For our example, the first (and only) BFS call will find ["0", "2", "3", "1"].
 	for {
-		path, found := bfs(copyNeighbors, start, end)
-		if !found {
+		path, pathFound := bfs(connectionsCopy, startRoom, endRoom)
+		if !pathFound {
 			break
 		}
-		// Append the found path.
-		paths = append(paths, path)
-		// Remove the forward edges of the found path so they are not reused.
-		removePathEdges(copyNeighbors, path)
+		// Add the found path to our list.
+		foundPaths = append(foundPaths, path)
+		// Remove the tunnels used in this path so they cannot be used again.
+		removePathEdges(connectionsCopy, path)
 	}
 
-	if len(paths) == 0 {
+	if len(foundPaths) == 0 {
 		return nil, errors.New("ERROR: no valid paths found")
 	}
-	return paths, nil
+	return foundPaths, nil
 }
 
-// 3. bfs
-// Performs a breadth-first search from start to end using the provided neighbors map.
-// Arguments:
-//   - neighbors (map[string][]string): The graph's adjacency list (which may be modified).
-//   - start (string): The starting room name.
-//   - end (string): The target room name.
+// bfs performs a breadth-first search to find one path from the startRoom to the endRoom.
+// Example with our graph from example00.txt:
 //
-// Returns:
-//   - []string: The found path as a slice of room names (if found).
-//   - bool: A flag indicating if a path was found (true) or not (false).
-func bfs(neighbors map[string][]string, start, end string) ([]string, bool) {
-	queue := []string{start}          // Initialize queue with the start node.
-	visited := make(map[string]bool)  // Track visited nodes.
-	parent := make(map[string]string) // Map to reconstruct the path.
-	visited[start] = true
+//	It starts at "0", visits "2", then "3", and finally "1", reconstructing the path as ["0", "2", "3", "1"].
+func bfs(connections map[string][]string, startRoom, endRoom string) ([]string, bool) {
+	queue := []string{startRoom}          // Start with the startRoom (e.g., "0").
+	visited := make(map[string]bool)      // To track visited rooms.
+	parentRoom := make(map[string]string) // To record how we reached each room.
+	visited[startRoom] = true
 
 	for len(queue) > 0 {
-		current := queue[0]
+		currentRoom := queue[0]
 		queue = queue[1:]
-		// If we reach the end, reconstruct the path.
-		if current == end {
+		// If we've reached the end room (e.g., "1"), rebuild the path.
+		if currentRoom == endRoom {
 			var path []string
-			for node := end; node != ""; node = parent[node] {
-				// Prepend node to path.
-				path = append([]string{node}, path...)
+			// Reconstruct the path by going backwards from endRoom using the parentRoom map.
+			for room := endRoom; room != ""; room = parentRoom[room] {
+				// Prepend each room to build the path in order.
+				path = append([]string{room}, path...)
 			}
 			return path, true
 		}
-		// Explore unvisited neighbors.
-		for _, neigh := range neighbors[current] {
-			if !visited[neigh] {
-				visited[neigh] = true
-				parent[neigh] = current
-				queue = append(queue, neigh)
+		// Check every room directly connected to the current room.
+		for _, nextRoom := range connections[currentRoom] {
+			if !visited[nextRoom] {
+				visited[nextRoom] = true
+				parentRoom[nextRoom] = currentRoom
+				queue = append(queue, nextRoom)
 			}
 		}
 	}
 	return nil, false
 }
 
-// 4. removePathEdges
-// Removes the forward edges used in the given path from the neighbors map,
-// so that subsequent BFS searches cannot reuse these edges.
-// Arguments:
-//   - neighbors (map[string][]string): The mutable adjacency list copy.
-//   - path ([]string): The path found by bfs, as a slice of room names.
-func removePathEdges(neighbors map[string][]string, path []string) {
-	// For each consecutive pair of nodes in the path, remove the forward edge.
-	for i := 0; i < len(path)-1; i++ {
-		u, v := path[i], path[i+1]
-		neighbors[u] = removeEdge(neighbors[u], v)
-		// Note: The reverse edge from v to u is left intact.
+// removePathEdges removes the tunnels used in a given path from the connections map.
+// This prevents the same tunnel from being used in another path.
+// Example with path ["0", "2", "3", "1"]:
+//
+//	For "0" -> "2": remove "2" from the list of neighbors for "0".
+//	For "2" -> "3": remove "3" from the list of neighbors for "2".
+//	For "3" -> "1": remove "1" from the list of neighbors for "3".
+//
+// The reverse connections (e.g., "2" still has "0") are kept.
+func removePathEdges(connections map[string][]string, roomPath []string) {
+	for i := 0; i < len(roomPath)-1; i++ {
+		fromRoom, toRoom := roomPath[i], roomPath[i+1]
+		connections[fromRoom] = removeEdge(connections[fromRoom], toRoom)
 	}
 }
 
-// 5. removeEdge
-// Removes the target string from a slice of strings and returns the updated slice.
-// Arguments:
-//   - slice ([]string): The slice from which to remove the element.
-//   - target (string): The element to remove.
-//
-// Returns:
-//   - []string: The new slice with the target removed.
-func removeEdge(slice []string, target string) []string {
-	newSlice := slice[:0] // Use the same underlying array.
-	for _, s := range slice {
-		if s != target {
-			newSlice = append(newSlice, s)
+// removeEdge removes a specific room name from a list of connected rooms.
+// Example: removeEdge(["2"], "2") will return an empty list, removing the connection.
+func removeEdge(connectionList []string, roomNameToRemove string) []string {
+	newList := connectionList[:0] // Reuse the same underlying array.
+	for _, roomName := range connectionList {
+		if roomName != roomNameToRemove {
+			newList = append(newList, roomName)
 		}
 	}
-	return newSlice
+	return newList
 }
