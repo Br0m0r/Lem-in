@@ -11,33 +11,32 @@ import (
 	"lem-in/visualizer"
 )
 
-// Run is the application entry point.
+// Run executes the main application workflow.
 func Run() {
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: go run . <input_file>")
 		os.Exit(1)
 	}
-
 	inputFile := os.Args[1]
 
-	// Parse input, build graph, assign ants, etc.
+	// Parse input
 	antCount, rooms, tunnels, err := parser.ParseInputFile(inputFile)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
+	// Basic validation
 	if antCount <= 0 {
 		fmt.Println("ERROR: invalid data format")
 		os.Exit(1)
 	}
-
 	var startFound, endFound bool
-	for _, room := range rooms {
-		if room.IsStart {
+	for _, r := range rooms {
+		if r.IsStart {
 			startFound = true
 		}
-		if room.IsEnd {
+		if r.IsEnd {
 			endFound = true
 		}
 	}
@@ -46,21 +45,20 @@ func Run() {
 		os.Exit(1)
 	}
 
-	antFarmGraph, err := graph.BuildGraph(rooms, tunnels)
+	// Build graph and find paths
+	g, err := graph.BuildGraph(rooms, tunnels)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-
-	paths, err := graph.FindMultiplePaths(antFarmGraph)
+	paths, err := graph.FindMultiplePaths(g)
 	if err != nil || len(paths) == 0 {
 		fmt.Println("ERROR: invalid data format")
 		os.Exit(1)
 	}
 
+	// Assign ants and simulate
 	assignment := scheduling.AssignAnts(antCount, paths)
 	extraInfo := visualizer.PrintExtraInfo(antCount, rooms, tunnels, paths, assignment)
-
-	// Run the simulation.
 	simulation.SimulateMultiPath(antCount, paths, assignment, extraInfo)
 }

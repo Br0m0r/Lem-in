@@ -11,44 +11,45 @@ import (
 	"lem-in/structs"
 )
 
-// ParseInputFile reads the input file and returns the ant count, rooms, tunnels, and an error if any.
-// It expects the first line to be the ant count, then room definitions (with "##start" and "##end"),
-// followed by tunnel definitions.
-func ParseInputFile(filename string) (int, []structs.Room, []structs.Tunnel, error) {
-	file, err := os.Open(filename)
+// ParseInputFile reads ant count, rooms, and tunnels from an input file.
+func ParseInputFile(filePath string) (int, []structs.Room, []structs.Tunnel, error) {
+	file, err := os.Open(filePath)
 	if err != nil {
 		return 0, nil, nil, fmt.Errorf("failed to open file: %v", err)
 	}
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	var antCount int
-	var rooms []structs.Room
-	var tunnels []structs.Tunnel
 
+	// read number of ants
+	var antTotal int
 	if scanner.Scan() {
-		countStr := strings.TrimSpace(scanner.Text())
-		antCount, err = strconv.Atoi(countStr)
+		antStr := strings.TrimSpace(scanner.Text())
+		antTotal, err = strconv.Atoi(antStr)
 		if err != nil {
 			return 0, nil, nil, errors.New("ERROR: invalid number of ants")
 		}
 	}
 
-	var isNextRoomStart, isNextRoomEnd bool
+	var roomList []structs.Room
+	var tunnelList []structs.Tunnel
+	positionMap := make(map[string]bool)
+	var nextRoomIsStart, nextRoomIsEnd bool
+
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		if len(line) == 0 {
+		if line == "" {
 			continue
 		}
-		if line[0] == '#' {
-			if strings.HasPrefix(line, "##start") {
-				isNextRoomStart = true
-				continue
-			}
-			if strings.HasPrefix(line, "##end") {
-				isNextRoomEnd = true
-				continue
-			}
+		if strings.HasPrefix(line, "##start") {
+			nextRoomIsStart = true
+			continue
+		}
+		if strings.HasPrefix(line, "##end") {
+			nextRoomIsEnd = true
+			continue
+		}
+		if strings.HasPrefix(line, "#") {
 			continue
 		}
 		parts := strings.Fields(line)
@@ -58,27 +59,28 @@ func ParseInputFile(filename string) (int, []structs.Room, []structs.Tunnel, err
 			if errX != nil || errY != nil {
 				return 0, nil, nil, errors.New("ERROR: invalid room coordinates")
 			}
-			room := structs.Room{
+			posKey := fmt.Sprintf("%d,%d", x, y)
+			if positionMap[posKey] {
+				return 0, nil, nil, errors.New("ERROR: duplicate room coordinates")
+			}
+			positionMap[posKey] = true
+			newRoom := structs.Room{
 				Name:    parts[0],
 				X:       x,
 				Y:       y,
-				IsStart: isNextRoomStart,
-				IsEnd:   isNextRoomEnd,
+				IsStart: nextRoomIsStart,
+				IsEnd:   nextRoomIsEnd,
 			}
-			rooms = append(rooms, room)
-			isNextRoomStart = false
-			isNextRoomEnd = false
+			roomList = append(roomList, newRoom)
+			nextRoomIsStart = false
+			nextRoomIsEnd = false
 			continue
 		}
 		if strings.Contains(line, "-") {
-			roomNames := strings.Split(line, "-")
-			if len(roomNames) != 2 {
-				return 0, nil, nil, errors.New("ERROR: invalid tunnel definition")
-			}
-			tunnels = append(tunnels, structs.Tunnel{RoomA: roomNames[0], RoomB: roomNames[1]})
-			continue
+			names := strings.Split(line, "-")
+			tunnelList = append(tunnelList, structs.Tunnel{RoomA: names[0], RoomB: names[1]})
 		}
 	}
 
-	return antCount, rooms, tunnels, nil
+	return antTotal, roomList, tunnelList, nil
 }

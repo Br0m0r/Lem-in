@@ -1,12 +1,12 @@
 package scheduling
 
 import (
-	"lem-in/structs"
 	"sort"
+
+	"lem-in/structs"
 )
 
-// AssignAnts distributes ants among paths using a greedy algorithm.
-// The effective cost is calculated as: (path length) + (ants already assigned) - 1.
+// AssignAnts distributes ants among paths by minimizing cost = len+assigned-1.
 func AssignAnts(antCount int, paths [][]string) structs.PathAssignment {
 	numPaths := len(paths)
 	antsPerPath := make([]int, numPaths)
@@ -18,13 +18,13 @@ func AssignAnts(antCount int, paths [][]string) structs.PathAssignment {
 		}
 		pathCosts := make([]pathCost, numPaths)
 		for j := 0; j < numPaths; j++ {
-			cost := len(paths[j]) + antsPerPath[j] - 1
-			pathCosts[j] = pathCost{index: j, cost: cost}
+			pathCosts[j] = pathCost{index: j, cost: len(paths[j]) + antsPerPath[j] - 1}
 		}
 		sort.Slice(pathCosts, func(a, b int) bool {
 			return pathCosts[a].cost < pathCosts[b].cost
 		})
 		antsPerPath[pathCosts[0].index]++
 	}
+
 	return structs.PathAssignment{Paths: paths, AntsPerPath: antsPerPath}
 }
