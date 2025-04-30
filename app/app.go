@@ -51,7 +51,7 @@ func Run() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-	paths, err := graph.FindMultiplePaths(g)
+	paths, err := graph.GetOptimalPaths(g)
 	if err != nil || len(paths) == 0 {
 		fmt.Println("ERROR: invalid data format")
 		os.Exit(1)
