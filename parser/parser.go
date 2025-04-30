@@ -35,12 +35,14 @@ func ParseInputFile(filePath string) (int, []structs.Room, []structs.Tunnel, err
 	var tunnelList []structs.Tunnel
 	positionMap := make(map[string]bool)
 	var nextRoomIsStart, nextRoomIsEnd bool
+	startCount, endCount := 0, 0
 
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" {
 			continue
 		}
+		// handle commands
 		if strings.HasPrefix(line, "##start") {
 			nextRoomIsStart = true
 			continue
@@ -52,6 +54,8 @@ func ParseInputFile(filePath string) (int, []structs.Room, []structs.Tunnel, err
 		if strings.HasPrefix(line, "#") {
 			continue
 		}
+
+		// parse room definitions
 		parts := strings.Fields(line)
 		if len(parts) == 3 {
 			x, errX := strconv.Atoi(parts[1])
@@ -59,11 +63,27 @@ func ParseInputFile(filePath string) (int, []structs.Room, []structs.Tunnel, err
 			if errX != nil || errY != nil {
 				return 0, nil, nil, errors.New("ERROR: invalid room coordinates")
 			}
+			// check duplicate coordinates
 			posKey := fmt.Sprintf("%d,%d", x, y)
 			if positionMap[posKey] {
 				return 0, nil, nil, errors.New("ERROR: duplicate room coordinates")
 			}
 			positionMap[posKey] = true
+
+			// validate single start/end
+			if nextRoomIsStart {
+				if startCount >= 1 {
+					return 0, nil, nil, errors.New("ERROR: multiple start rooms")
+				}
+				startCount++
+			}
+			if nextRoomIsEnd {
+				if endCount >= 1 {
+					return 0, nil, nil, errors.New("ERROR: multiple end rooms")
+				}
+				endCount++
+			}
+
 			newRoom := structs.Room{
 				Name:    parts[0],
 				X:       x,
@@ -76,10 +96,21 @@ func ParseInputFile(filePath string) (int, []structs.Room, []structs.Tunnel, err
 			nextRoomIsEnd = false
 			continue
 		}
+
+		// parse tunnels with strict format
 		if strings.Contains(line, "-") {
 			names := strings.Split(line, "-")
+			if len(names) != 2 || names[0] == "" || names[1] == "" {
+				return 0, nil, nil, errors.New("ERROR: invalid tunnel format")
+			}
 			tunnelList = append(tunnelList, structs.Tunnel{RoomA: names[0], RoomB: names[1]})
+			continue
 		}
+	}
+
+	// ensure exactly one start and one end room
+	if startCount != 1 || endCount != 1 {
+		return 0, nil, nil, errors.New("ERROR: missing or multiple start/end rooms")
 	}
 
 	return antTotal, roomList, tunnelList, nil
