@@ -1,156 +1,101 @@
-Lem-in Project
+# Lem-in
 
-Welcome, oh Supreme Overlord, to the ultimate Lem-in simulation project—where ants traverse labyrinths in a beautifully orchestrated parade.
+A digital ant farm simulation that finds the quickest way to move ants from start to end room.
 
-                                                               Overview
+## Objective
 
-Lem-in is a simulation program that:
+Create a program that reads an ant farm description from a file and simulates ants moving through tunnels to find the optimal path with minimum moves.
 
-    Parses an input file describing an ant farm (number of ants, rooms with coordinates, tunnels).
+## Usage
 
-    Builds a graph from the input data.
-
-    Uses a max-flow algorithm to find multiple disjoint paths between the start and end rooms.
-
-    Assigns ants to these paths using a greedy scheduling algorithm.
-
-    Simulates ant movements turn-by-turn with a 2D grid visualization.
-
-    Outputs minimal move information to the terminal and a detailed simulation (with a full grid showing every ant's progress) to simulation_output.txt.
-
-The project is structured in a modular fashion so that each component (parsing, graph construction, scheduling, simulation, and visualization) is neatly separated into its own package. Enjoy the efficiency and elegance of this modular design, Your Benevolent Overlord.
-
-Installation
-
-    Clone the Repository:
-
-git clone https://platform.zone01.gr/git/mfoteino/lem-in.git
-cd lem-in
-
-
-Usage
-
-The program accepts an input file that describes the ant farm. For example:
-
-go run . examples/example01.txt
-
-The program will:
-
-    Print minimal turn moves to the terminal.
-
-    Generate a detailed 2D grid visualization (with all ants displayed in their respective rooms) in simulation_output.txt.
-
-
- Input:
-
-    10
-    ##start
-    start 1 6
-    0 4 8
-    o 6 8
-    n 6 6
-    e 8 4
-    t 1 9
-    E 5 9
-    a 8 9
-    m 8 6
-    h 4 6
-    A 5 2
-    c 8 1
-    k 11 2
-    ##end
-    end 11 6
-
-    Tunnel Definitions:
-    After room definitions, list the tunnels connecting rooms.
-    Each tunnel is defined by:
-    roomA-roomB
+```bash
+go run . <input_file>
+```
 
 Example:
+```bash
+go run . examples/example01.txt
+```
 
-    start-t
-    n-e
-    a-m
-    A-c
-    0-o
-    E-a
-    k-end
-    start-h
-    o-n
-    m-end
-    t-E
-    start-0
-    h-A
-    e-end
-    c-k
-    n-m
-    h-n
+## Input Format
 
-Output Format
+The input file contains:
+1. **Number of ants** (first line)
+2. **Rooms** with coordinates: `room_name x_coord y_coord`
+   - `##start` marks the starting room
+   - `##end` marks the ending room
+3. **Tunnels** connecting rooms: `room1-room2`
 
-    Terminal Output:
-    Displays minimal move info per turn, e.g.:
+### Example Input:
+```
+3
+##start
+1 23 3
+2 16 7
+3 16 3
+##end
+0 9 5
+1-3
+3-0
+2-1
+```
 
-    Turn 1: L9-1 L20-3
-    Turn 2: L9-2 L8-1
-    Turn 3: L9-3 L8-2 L7-1
-    ...
-    Total turns: 11
+## Output Format
 
-File Output (simulation_output.txt):
-Contains detailed 2D grid visualization for each turn along with extra info (input data and summary).
-    
-    Example snippet:
+The program outputs:
+1. **Input data** (echoed back)
+2. **Movement turns** showing ant movements: `Lx-room_name`
 
-    10
-    ##start
-    start 1 6
-    0 4 8
-    ...
-    ##end
-    end 11 6
-    start-t
-    n-e
-    ...
+### Example Output:
+```
+3
+##start
+1 23 3
+2 16 7
+3 16 3
+##end
+0 9 5
+1-3
+3-0
+2-1
 
-    ----------- Summary -----------
-    Number of ants: 10
-    Number of rooms: 14
-    Number of tunnels: 16
-    Start room: start
-    End room: end
+L1-3 L2-1
+L1-0 L2-3 L3-1
+L2-0 L3-3
+L3-0
+```
 
-    ---------- All Found Paths ----------
-    1) start -> ... -> end
-    ...
+## Rules
 
-    TURN 1
-    [ start (L9) ] ---> [ ... ] ---> [ end ]
-    [ start (L20) ] ---> [ end ]
+- Ants start at `##start` and must reach `##end`
+- Each room can hold only one ant (except start/end rooms)
+- Each tunnel can only be used once per turn
+- Room names cannot start with 'L' or '#' and must have no spaces
+- Only standard Go packages allowed
 
-    TURN 2
-    ...
+## Error Handling
 
-    Total turns: 11
+The program handles invalid input with error message: `ERROR: invalid data format`
 
-Project Structure
+Common error cases:
+- Invalid number of ants
+- Missing start or end room
+- Duplicate rooms
+- Invalid room coordinates
+- Links to unknown rooms
+- No path between start and end
 
-The project is organized into separate packages for a clean modular design:
+## Project Structure
 
-    lem-in/
-    ├── main.go                # Entry point of the application.
-    ├── app/                   # Contains application logic.
-    │   └── app.go
-    ├── parser/                # Responsible for parsing the input file.
-    │   └── parser.go
-    ├── graph/                 # Builds the graph and finds paths using max-flow.
-    │   └── graph.go
-    ├── scheduling/            # Contains the ant scheduling (assignment) algorithm.
-    │   └── scheduling.go
-    ├── simulation/            # Simulates ant movements and produces 2D grid visualization.
-    │   └── simulation.go
-    ├── visualizer/            # Generates extra info and visualization summaries.
-    │   └── visualizer.go
-    └── structs/               # Contains shared types and data structures.
-        └── structs.go
+```
+lem-in/
+├── main.go                # Entry point
+├── app/                   # Application logic
+├── parser/                # Input file parsing
+├── graph/                 # Graph construction and pathfinding
+├── scheduling/            # Ant scheduling algorithm
+├── simulation/            # Movement simulation
+├── visualizer/            # Visualization output
+└── structs/               # Shared data structures
+```
 
